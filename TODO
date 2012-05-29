@@ -1,4 +1,3 @@
-- setup.py
 - Detail window with hand tool
 - Per-page rotation
 - Don't hardcode the base resolution of the scanner
