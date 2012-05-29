@@ -1,0 +1,25 @@
+# SANE device string (required)
+device: "fujitsu:ScanSnap S1500:123456"
+
+# Configure SANE sources for simplex and duplex scanning (required)
+single-source: "ADF Back"
+double-source: "ADF Duplex"
+
+# Rotate all pages 180 degrees
+rotate: 180
+
+# Load pages back-to-front
+page-order: reverse
+
+# SANE driver produces garbage in grayscale mode
+fake-grayscale: true
+
+defaults:
+    # Enable duplex scanning by default
+    double-sided: true
+
+scan-settings:
+    # Set SANE options (see scanimage -A)
+    ald: yes
+    df-action: stop
+    df-thickness: yes
