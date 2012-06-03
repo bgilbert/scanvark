@@ -29,20 +29,25 @@ class Page(object):
         self._fh = TemporaryFile(prefix='scanvark-')
         image.save(self._fh, 'ppm')
 
+        self.resolution = resolution
         self.size = image.size
 
-        self.thumbnail = image.copy()
-        self.thumbnail.thumbnail(config.thumbnail_size, Image.ANTIALIAS)
-        if self.thumbnail.mode != 'RGB':
-            self.thumbnail = self.thumbnail.convert('RGB')
-        self.thumbnail_pixbuf = gtk.gdk.pixbuf_new_from_array(
-                numpy.asarray(self.thumbnail), gtk.gdk.COLORSPACE_RGB, 8)
+        thumbnail = image.copy()
+        thumbnail.thumbnail(config.thumbnail_size, Image.ANTIALIAS)
+        self.thumbnail_pixbuf = self._make_pixbuf(thumbnail)
 
-        self.resolution = resolution
+    def _get_image(self):
+        self._fh.seek(0)
+        return Image.open(self._fh)
+
+    def _make_pixbuf(self, image):
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        return gtk.gdk.pixbuf_new_from_array(numpy.asarray(image),
+                gtk.gdk.COLORSPACE_RGB, 8)
 
     def open_jpeg(self):
-        self._fh.seek(0)
-        image = Image.open(self._fh)
+        image = self._get_image()
         buf = StringIO()
         image.save(buf, 'jpeg', quality=self._config.jpeg_quality)
         return StringIO(buf.getvalue())
