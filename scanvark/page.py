@@ -32,9 +32,8 @@ class Page(object):
         self.resolution = resolution
         self.size = image.size
 
-        thumbnail = image.copy()
-        thumbnail.thumbnail(config.thumbnail_size, Image.ANTIALIAS)
-        self.thumbnail_pixbuf = self._make_pixbuf(thumbnail)
+        self._thumbnail = image.copy()
+        self._thumbnail.thumbnail(config.thumbnail_size, Image.ANTIALIAS)
 
     def _get_image(self):
         self._fh.seek(0)
@@ -50,6 +49,10 @@ class Page(object):
     @property
     def pixbuf(self):
         return self._make_pixbuf(self._get_image())
+
+    @property
+    def thumbnail_pixbuf(self):
+        return self._make_pixbuf(self._thumbnail)
 
     def open_jpeg(self):
         image = self._get_image()
