@@ -222,7 +222,7 @@ class _PageView(_ListIconView):
     def delete_selected(self):
         model = self.get_model()
         for path in sorted(self.get_selected_items(), reverse=True):
-            model.remove(model.get_iter(path))
+            model.remove_page(path)
 
 
 class _Controls(gtk.Table):

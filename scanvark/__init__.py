@@ -45,6 +45,12 @@ class _PageList(gtk.ListStore):
     def append_page(self, page):
         self.append([page, page.thumbnail_pixbuf])
 
+    def get_page(self, path):
+        return self.get_value(self.get_iter(path), self.PAGE_COLUMN)
+
+    def remove_page(self, path):
+        self.remove(self.get_iter(path))
+
 
 class _SaveList(gtk.ListStore):
     THREAD_COLUMN = 0
@@ -113,11 +119,9 @@ class Scanvark(object):
     def _save_document(self, filename, page_paths):
         pages = []
         for path in page_paths:
-            pages.append(self._pagelist.get_value(
-                    self._pagelist.get_iter(path),
-                    self._pagelist.PAGE_COLUMN))
+            pages.append(self._pagelist.get_page(path))
         for path in reversed(page_paths):
-            self._pagelist.remove(self._pagelist.get_iter(path))
+            self._pagelist.remove_page(path)
 
         thread = SaveThread(self._config, filename, pages,
                 self._save_progress_callback,
