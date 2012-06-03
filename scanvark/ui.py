@@ -225,6 +225,32 @@ class _PageView(_ListIconView):
             model.remove_page(path)
 
 
+class _PageToolbar(gtk.Toolbar):
+    def __init__(self):
+        gtk.Toolbar.__init__(self)
+        self._pages_selected = False
+
+        def add_button(stock, tip):
+            button = gtk.ToolButton(stock)
+            button.set_tooltip_text(tip)
+            self.insert(button, -1)
+            return button
+
+        self.open_button = add_button('gtk-open', 'View pages')
+        self.save_button = add_button('gtk-save-as', 'Save pages as PDF')
+        self.delete_button = add_button('gtk-delete', 'Delete pages')
+
+        self._update_sensitive()
+
+    def set_pages_selected(self, selected):
+        self._pages_selected = selected
+        self._update_sensitive()
+
+    def _update_sensitive(self):
+        for wid in (self.open_button, self.save_button, self.delete_button):
+            wid.set_sensitive(self._pages_selected)
+
+
 class _Controls(gtk.Table):
     __gsignals__ = {
         'settings-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -292,13 +318,6 @@ class _Controls(gtk.Table):
         self.attach(align, 1, 2, row, row + 1)
         row += 1
 
-        self.attach(gtk.HSeparator(), 0, 2, row, row + 1, ypadding=5)
-        row += 1
-
-        self.delete_button, align = make_button('Delete')
-        self.attach(align, 1, 2, row, row + 1)
-        row += 1
-
         self.name_field.connect('activate',
                 lambda _wid: self._activate_save())
 
@@ -333,7 +352,6 @@ class _Controls(gtk.Table):
             wid.set_sensitive(not self._scan_running)
         self.save_button.set_sensitive(self._pages_selected and
                 bool(self.name_field.get_text()))
-        self.delete_button.set_sensitive(self._pages_selected)
 
     def _activate_save(self):
         if self.save_button.get_sensitive():
@@ -377,8 +395,14 @@ class MainWindow(gtk.Window):
             scroller.add(contained)
             return scroller
 
+        vbox = gtk.VBox()
+        hbox.pack_start(vbox)
+
+        self._toolbar = _PageToolbar()
+        vbox.pack_start(self._toolbar, expand=False)
+
         self._pages = _PageView(pagelist)
-        hbox.pack_start(make_scroller(self._pages))
+        vbox.pack_start(make_scroller(self._pages))
 
         vbox = gtk.VBox(spacing=5)
         hbox.pack_start(vbox, expand=False)
@@ -402,14 +426,24 @@ class MainWindow(gtk.Window):
                 lambda _wid: self.emit('scan'))
         self._controls.save_button.connect('clicked',
                 lambda _wid: self._save())
-        self._controls.delete_button.connect('clicked',
+        self._toolbar.open_button.connect('clicked',
+                lambda _wid: self._open())
+        self._toolbar.save_button.connect('clicked',
+                lambda _wid: self._controls.name_field.grab_focus())
+        self._toolbar.delete_button.connect('clicked',
                 lambda _wid: self._pages.delete_selected())
+
+        self._pages.grab_focus()
 
     def get_settings(self):
         return self._controls.get_settings()
 
     def set_scan_running(self, running):
         self._controls.set_scan_running(running)
+
+    def _open(self):
+        for path in self._pages.get_selected_items():
+            self._pages.item_activated(path)
 
     def _save(self):
         filename = self._controls.name_field.get_text()
@@ -427,8 +461,9 @@ class MainWindow(gtk.Window):
         self._pages.grab_focus()
 
     def _pages_selected(self, _wid):
-        self._controls.set_pages_selected(bool(
-                self._pages.get_selected_items()))
+        selected = bool(self._pages.get_selected_items())
+        self._toolbar.set_pages_selected(selected)
+        self._controls.set_pages_selected(selected)
 
 
 class PageWindow(gtk.Window):
