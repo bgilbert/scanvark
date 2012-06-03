@@ -17,6 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+from __future__ import division
 from bisect import bisect_left
 from collections import Sequence
 import glib
@@ -272,7 +273,7 @@ class _Controls(gtk.Table):
         self._resolution = gtk.combo_box_new_text()
         for i in range(0, 20):
             if _BASE_RESOLUTION % (i + 1) == 0:
-                resolution = _BASE_RESOLUTION / (i + 1)
+                resolution = _BASE_RESOLUTION // (i + 1)
                 self._resolution.append_text(str(resolution) + ' dpi')
                 if resolution == config.default_resolution:
                     self._resolution.set_active(i)
