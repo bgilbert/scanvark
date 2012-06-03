@@ -1,5 +1,6 @@
-- Detail window with hand tool
 - Per-page rotation
 - Don't hardcode the base resolution of the scanner
 - Configuration UI
 - Output directory handling
+- Handle scan errors
+- 8 1/2 x 14 doesn't work?

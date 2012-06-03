@@ -359,6 +359,8 @@ class MainWindow(gtk.Window):
         'save': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_STRING, object)),
         'settings-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'page-opened': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (object,)),
     }
 
     def __init__(self, config, pagelist, savelist):
@@ -394,6 +396,8 @@ class MainWindow(gtk.Window):
         self._pages.connect('selection-changed', self._pages_selected)
         self._pages.connect('activated',
                 lambda _wid: self._controls.name_field.grab_focus())
+        self._pages.connect('item-activated', lambda _wid, path:
+                self.emit('page-opened', pagelist.get_page(path)))
         self._controls.scan_button.connect('clicked',
                 lambda _wid: self.emit('scan'))
         self._controls.save_button.connect('clicked',
@@ -425,6 +429,77 @@ class MainWindow(gtk.Window):
     def _pages_selected(self, _wid):
         self._controls.set_pages_selected(bool(
                 self._pages.get_selected_items()))
+
+
+class PageWindow(gtk.Window):
+    __gsignals__ = {
+        'closed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
+    def __init__(self, page):
+        gtk.Window.__init__(self)
+        self.set_title('Page View')
+        # Fudge factor for scroll bar width
+        self.set_default_size(*[d + 30 for d in page.size])
+
+        self.page = page
+        self._drag_base = None
+
+        img = gtk.Image()
+        img.set_from_pixbuf(page.pixbuf)
+
+        ebox = gtk.EventBox()
+        ebox.add(img)
+        ebox.connect('button-press-event', self._press)
+        ebox.connect('button-release-event', self._release)
+        ebox.connect('motion-notify-event', self._motion)
+        ebox.connect('realize', lambda _wid:
+                ebox.window.set_cursor(gtk.gdk.Cursor(gtk.gdk.CROSSHAIR)))
+
+        scroller = gtk.ScrolledWindow()
+        scroller.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        scroller.add_with_viewport(ebox)
+        self._adjustments = (scroller.get_hadjustment(),
+                scroller.get_vadjustment())
+        self.add(scroller)
+        scroller.show_all()
+
+        self.connect('delete-event', self._delete)
+
+        accels = gtk.AccelGroup()
+        accels.connect_group(gtk.keysyms.W, gtk.gdk.CONTROL_MASK,
+                gtk.ACCEL_LOCKED, self._close_key)
+        accels.connect_group(gtk.keysyms.Escape, 0,
+                gtk.ACCEL_LOCKED, self._close_key)
+        self.add_accel_group(accels)
+
+    def _press(self, _wid, ev):
+        if ev.button == 1:
+            adjustments = [a.get_value() for a in self._adjustments]
+            coords = (ev.x_root, ev.y_root)
+            self._drag_base = [a + c for a, c in zip(adjustments, coords)]
+
+    def _release(self, _wid, ev):
+        if ev.button == 1:
+            self._drag_base = None
+
+    def _motion(self, _wid, ev):
+        if self._drag_base is not None:
+            coords = (ev.x_root, ev.y_root)
+            values = [min(max(base - coord, adjustment.lower),
+                    adjustment.upper - adjustment.page_size)
+                    for adjustment, base, coord in
+                    zip(self._adjustments, self._drag_base, coords)]
+            for adjustment, value in zip(self._adjustments, values):
+                adjustment.set_value(value)
+
+    def _close_key(self, _group, _wid, _keyval, _modifier):
+        self.emit('closed')
+        return True
+
+    def _delete(self, _wid, _ev):
+        self.emit('closed')
+        return True
 
 
 class ErrorDialog(gtk.MessageDialog):

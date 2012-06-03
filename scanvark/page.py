@@ -46,6 +46,10 @@ class Page(object):
         return gtk.gdk.pixbuf_new_from_array(numpy.asarray(image),
                 gtk.gdk.COLORSPACE_RGB, 8)
 
+    @property
+    def pixbuf(self):
+        return self._make_pixbuf(self._get_image())
+
     def open_jpeg(self):
         image = self._get_image()
         buf = StringIO()

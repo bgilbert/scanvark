@@ -25,11 +25,16 @@ import gtk
 from .config import ScanvarkConfig
 from .save import SaveThread
 from .scanner import ScannerThread
-from .ui import MainWindow, ErrorDialog
+from .ui import MainWindow, PageWindow, ErrorDialog
 
 class _PageList(gtk.ListStore):
     PAGE_COLUMN = 0
     PIXBUF_COLUMN = 1
+
+    __gsignals__ = {
+        'page-removed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (object,)),
+    }
 
     def __init__(self, config):
         gtk.ListStore.__init__(self, object, gtk.gdk.Pixbuf)
@@ -49,6 +54,7 @@ class _PageList(gtk.ListStore):
         return self.get_value(self.get_iter(path), self.PAGE_COLUMN)
 
     def remove_page(self, path):
+        self.emit('page-removed', self.get_page(path))
         self.remove(self.get_iter(path))
 
 
@@ -95,6 +101,7 @@ class Scanvark(object):
         self._savelist = _SaveList()
         self._main_window = MainWindow(self._config, self._pagelist,
                 self._savelist)
+        self._page_windows = {}
 
         self._main_window.connect('delete-event', gtk.main_quit)
 
@@ -104,6 +111,11 @@ class Scanvark(object):
                 lambda _wid, f, p: self._save_document(f, p))
         self._main_window.connect('settings-changed',
                 lambda _wid: self._copy_settings_to_scanner())
+        self._main_window.connect('page-opened',
+                lambda _wid, page: self._open_page(page))
+
+        self._pagelist.connect('page-removed',
+                lambda _model, page: self._close_page(page))
 
         self._copy_settings_to_scanner()
 
@@ -164,3 +176,17 @@ class Scanvark(object):
     def _page_callback(self, page):
         # Runs in scanner thread
         glib.idle_add(self._pagelist.add_page, page)
+
+    def _open_page(self, page):
+        if page not in self._page_windows:
+            window = PageWindow(page)
+            window.connect('closed',
+                    lambda wid: self._close_page(wid.page))
+            self._page_windows[page] = window
+        self._page_windows[page].present()
+
+    def _close_page(self, page):
+        try:
+            self._page_windows.pop(page).destroy()
+        except KeyError:
+            pass
