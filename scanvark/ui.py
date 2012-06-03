@@ -200,6 +200,7 @@ class _ListIconView(gtk.IconView):
 class _PageView(_ListIconView):
     __gsignals__ = {
         'activated': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'delete-selected': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self, model):
@@ -215,14 +216,9 @@ class _PageView(_ListIconView):
                 return True
             if (ev.keyval == gtk.gdk.keyval_from_name('BackSpace') or
                     ev.keyval == gtk.gdk.keyval_from_name('Delete')):
-                self.delete_selected()
+                self.emit('delete-selected')
                 return True
         return False
-
-    def delete_selected(self):
-        model = self.get_model()
-        for path in sorted(self.get_selected_items(), reverse=True):
-            model.remove_page(path)
 
 
 class _PageToolbar(gtk.Toolbar):
@@ -422,6 +418,8 @@ class MainWindow(gtk.Window):
                 lambda _wid: self._controls.name_field.grab_focus())
         self._pages.connect('item-activated', lambda _wid, path:
                 self.emit('page-opened', pagelist.get_page(path)))
+        self._pages.connect('delete-selected',
+                lambda _wid: self._delete_selected())
         self._controls.scan_button.connect('clicked',
                 lambda _wid: self.emit('scan'))
         self._controls.save_button.connect('clicked',
@@ -431,7 +429,7 @@ class MainWindow(gtk.Window):
         self._toolbar.save_button.connect('clicked',
                 lambda _wid: self._controls.name_field.grab_focus())
         self._toolbar.delete_button.connect('clicked',
-                lambda _wid: self._pages.delete_selected())
+                lambda _wid: self._delete_selected())
 
         self._pages.grab_focus()
 
@@ -464,6 +462,11 @@ class MainWindow(gtk.Window):
         selected = bool(self._pages.get_selected_items())
         self._toolbar.set_pages_selected(selected)
         self._controls.set_pages_selected(selected)
+
+    def _delete_selected(self):
+        model = self._pages.get_model()
+        for path in sorted(self._pages.get_selected_items(), reverse=True):
+            model.remove_page(path)
 
 
 class PageWindow(gtk.Window):
