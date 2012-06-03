@@ -84,6 +84,8 @@ class ScannerThread(threading.Thread):
             self._start.clear()
 
             # Configure scanner
+            # pylint chokes on SaneDev's dynamic attributes
+            # pylint: disable=W0201
             self._scan_status_callback(True)
             self._dev.resolution = self.resolution
             if self.color or self._config.fake_grayscale:
@@ -94,6 +96,7 @@ class ScannerThread(threading.Thread):
                 self._dev.source = self._config.source_double
             else:
                 self._dev.source = self._config.source_single
+            # pylint: enable=W0201
 
             # Scan
             odd = True
@@ -102,7 +105,7 @@ class ScannerThread(threading.Thread):
                 page = Page(self._config, img, self.resolution)
                 self._page_callback(page)
                 odd = not odd
-            img = temp = None
+            img = None
             self._scan_status_callback(False)
 
     def scan(self):

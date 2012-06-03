@@ -40,7 +40,8 @@ class Page(object):
         self._fh.seek(0)
         return Image.open(self._fh)
 
-    def _make_pixbuf(self, image):
+    @staticmethod
+    def _make_pixbuf(image):
         if image.mode != 'RGB':
             image = image.convert('RGB')
         return gtk.gdk.pixbuf_new_from_array(numpy.asarray(image),

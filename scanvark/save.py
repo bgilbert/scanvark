@@ -33,11 +33,14 @@ class SaveThread(threading.Thread):
         self._success_callback = success_callback
         self._error_callback = error_callback
 
+    # We intentionally catch all exceptions
+    # pylint: disable=W0703
     def run(self):
         try:
             canvas = Canvas(self.filename + '.pdf', pageCompression=1)
             canvas.setCreator('Scanvark')
             canvas.setTitle('Scanned document')
+            i = 0
             count = len(self.pages)
             for i, page in enumerate(self.pages):
                 self._progress_callback(self, i, count)
@@ -54,3 +57,4 @@ class SaveThread(threading.Thread):
             for page in self.pages:
                 page.finish()
             self._success_callback(self)
+    # pylint: enable=W0703

@@ -325,7 +325,7 @@ class _Controls(gtk.Table):
         self._pages_selected = False
         self._update_sensitive()
 
-    def _settings_changed(self, wid):
+    def _settings_changed(self, _wid):
         self.emit('settings-changed')
 
     def get_settings(self):
@@ -488,8 +488,11 @@ class PageWindow(gtk.Window):
         ebox.connect('button-press-event', self._press)
         ebox.connect('button-release-event', self._release)
         ebox.connect('motion-notify-event', self._motion)
+        # pylint thinks GdkWindow.set_cursor() doesn't exist
+        # pylint: disable=E1101
         ebox.connect('realize', lambda _wid:
                 ebox.window.set_cursor(gtk.gdk.Cursor(gtk.gdk.CROSSHAIR)))
+        # pylint: enable=E1101
 
         scroller = gtk.ScrolledWindow()
         scroller.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)

@@ -1,0 +1,20 @@
+[MASTER]
+persistent=no
+
+[MESSAGES CONTROL]
+# C0111 - missing docstring
+# I0011 - locally disabling message
+# R0901-R0922 - design checkers
+# W0622 - redefining builtin
+disable=C0111,I0011,R0901,R0902,R0903,R0904,R0911,R0912,R0913,R0914,R0915,R0921,R0922,W0622
+
+[REPORTS]
+include-ids=yes
+reports=no
+
+[BASIC]
+argument-rgx=[a-z_][a-z0-9_]{0,30}$
+variable-rgx=[a-z_][a-z0-9_]{0,30}$
+
+[VARIABLES]
+dummy-variables-rgx=_
