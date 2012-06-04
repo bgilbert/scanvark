@@ -19,26 +19,33 @@
 
 from __future__ import division
 from cStringIO import StringIO
+import gobject
 import gtk
 import numpy
 from PIL import Image
 from tempfile import TemporaryFile
 
-class Page(object):
+class Page(gobject.GObject):
+    __gsignals__ = {
+        'changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
     def __init__(self, config, image, resolution):
+        gobject.GObject.__init__(self)
         self._config = config
         self._fh = TemporaryFile(prefix='scanvark-')
         image.save(self._fh, 'ppm')
 
         self.resolution = resolution
-        self.size = image.size
+        self._size = image.size
+        self._rotation = 0
 
         self._thumbnail = image.copy()
         self._thumbnail.thumbnail(config.thumbnail_size, Image.ANTIALIAS)
 
     def _get_image(self):
         self._fh.seek(0)
-        return Image.open(self._fh)
+        return self._rotate_image(Image.open(self._fh))
 
     @staticmethod
     def _make_pixbuf(image):
@@ -47,13 +54,40 @@ class Page(object):
         return gtk.gdk.pixbuf_new_from_array(numpy.asarray(image),
                 gtk.gdk.COLORSPACE_RGB, 8)
 
+    def _rotate_image(self, image):
+        if self._rotation == 0:
+            return image
+        elif self._rotation == 90:
+            return image.transpose(Image.ROTATE_90)
+        elif self._rotation == 180:
+            return image.transpose(Image.ROTATE_180)
+        elif self._rotation == 270:
+            return image.transpose(Image.ROTATE_270)
+        else:
+            raise ValueError('Illegal rotation')
+
+    def rotate(self, degrees):
+        if degrees % 90:
+            raise ValueError('90 degree rotations only')
+        self._rotation += degrees
+        # Canonicalize
+        self._rotation -= 360 * (self._rotation // 360)
+        self.emit('changed')
+
+    @property
+    def size(self):
+        if self._rotation % 180:
+            return reversed(self._size)
+        else:
+            return self._size
+
     @property
     def pixbuf(self):
         return self._make_pixbuf(self._get_image())
 
     @property
     def thumbnail_pixbuf(self):
-        return self._make_pixbuf(self._thumbnail)
+        return self._make_pixbuf(self._rotate_image(self._thumbnail))
 
     def open_jpeg(self):
         image = self._get_image()
@@ -63,3 +97,5 @@ class Page(object):
 
     def finish(self):
         self._fh.close()
+
+gobject.type_register(Page)

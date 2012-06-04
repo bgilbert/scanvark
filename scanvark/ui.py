@@ -227,15 +227,29 @@ class _PageToolbar(gtk.Toolbar):
         gtk.Toolbar.__init__(self)
         self._pages_selected = False
 
-        def add_button(stock, tip):
-            button = gtk.ToolButton(stock)
+        theme = gtk.icon_theme_get_default()
+        def add_button(tip, stock=None, icon=None):
+            if stock is not None:
+                button = gtk.ToolButton(stock)
+            else:
+                pixbuf = theme.load_icon(icon, gtk.ICON_SIZE_SMALL_TOOLBAR, 0)
+                image = gtk.Image()
+                image.set_from_pixbuf(pixbuf)
+                button = gtk.ToolButton(icon_widget=image)
             button.set_tooltip_text(tip)
             self.insert(button, -1)
             return button
 
-        self.open_button = add_button('gtk-open', 'View pages')
-        self.save_button = add_button('gtk-save-as', 'Save pages as PDF')
-        self.delete_button = add_button('gtk-delete', 'Delete pages')
+        self.open_button = add_button('View pages', stock='gtk-open')
+        self.save_button = add_button('Save pages as PDF', stock='gtk-save-as')
+        self.delete_button = add_button('Delete pages', stock='gtk-delete')
+
+        self.insert(gtk.SeparatorToolItem(), -1)
+
+        self.rotate_left_button = add_button('Rotate pages left',
+                icon='object-rotate-left')
+        self.rotate_right_button = add_button('Rotate pages right',
+                icon='object-rotate-right')
 
         self._update_sensitive()
 
@@ -244,7 +258,8 @@ class _PageToolbar(gtk.Toolbar):
         self._update_sensitive()
 
     def _update_sensitive(self):
-        for wid in (self.open_button, self.save_button, self.delete_button):
+        for wid in (self.open_button, self.save_button, self.delete_button,
+                self.rotate_left_button, self.rotate_right_button):
             wid.set_sensitive(self._pages_selected)
 
 
@@ -449,6 +464,10 @@ class MainWindow(gtk.Window):
                 lambda _wid: self._controls.name_field.grab_focus())
         self._toolbar.delete_button.connect('clicked',
                 lambda _wid: self._delete_selected())
+        self._toolbar.rotate_left_button.connect('clicked',
+                lambda _wid: self._rotate(90))
+        self._toolbar.rotate_right_button.connect('clicked',
+                lambda _wid: self._rotate(-90))
 
         self._pages.grab_focus()
 
@@ -461,6 +480,11 @@ class MainWindow(gtk.Window):
     def _open(self):
         for path in self._pages.get_selected_items():
             self._pages.item_activated(path)
+
+    def _rotate(self, degrees):
+        model = self._pages.get_model()
+        for path in self._pages.get_selected_items():
+            model.get_page(path).rotate(degrees)
 
     def _save(self):
         filename = self._controls.name_field.get_text()
@@ -501,12 +525,13 @@ class PageWindow(gtk.Window):
 
         self.page = page
         self._drag_base = None
+        self._change_callback = page.connect('changed', self._page_changed)
 
-        img = gtk.Image()
-        img.set_from_pixbuf(page.pixbuf)
+        self._image = gtk.Image()
+        self._image.set_from_pixbuf(page.pixbuf)
 
         ebox = gtk.EventBox()
-        ebox.add(img)
+        ebox.add(self._image)
         ebox.connect('button-press-event', self._press)
         ebox.connect('button-release-event', self._release)
         ebox.connect('motion-notify-event', self._motion)
@@ -524,6 +549,7 @@ class PageWindow(gtk.Window):
         self.add(scroller)
         scroller.show_all()
 
+        self.connect('unrealize', self._unrealize)
         self.connect('delete-event', self._delete)
 
         accels = gtk.AccelGroup()
@@ -553,6 +579,9 @@ class PageWindow(gtk.Window):
             for adjustment, value in zip(self._adjustments, values):
                 adjustment.set_value(value)
 
+    def _page_changed(self, _page):
+        self._image.set_from_pixbuf(self.page.pixbuf)
+
     def _close_key(self, _group, _wid, _keyval, _modifier):
         self.emit('closed')
         return True
@@ -560,6 +589,11 @@ class PageWindow(gtk.Window):
     def _delete(self, _wid, _ev):
         self.emit('closed')
         return True
+
+    def _unrealize(self, _wid):
+        self.page.disconnect(self._change_callback)
+        self._change_callback = None
+
 
 
 class ErrorDialog(gtk.MessageDialog):

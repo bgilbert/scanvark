@@ -1,4 +1,3 @@
-- Per-page rotation
 - Don't hardcode the base resolution of the scanner
 - Configuration UI
 - Output directory handling
