@@ -361,11 +361,29 @@ class _SaveView(gtk.TreeView):
 
         renderer = gtk.CellRendererText()
         renderer.set_property('width-chars', 25)
-        self.append_column(gtk.TreeViewColumn('Filename', renderer,
-                text=model.FILENAME_COLUMN))
-        self.append_column(gtk.TreeViewColumn('Progress',
-                gtk.CellRendererProgress(), value=model.PROGRESS_COLUMN,
-                text=model.PROGRESS_TEXT_COLUMN))
+        col = gtk.TreeViewColumn('Filename', renderer)
+        col.set_cell_data_func(renderer, self._render_filename)
+        self.append_column(col)
+
+        renderer = gtk.CellRendererProgress()
+        col = gtk.TreeViewColumn('Progress', renderer)
+        col.set_cell_data_func(renderer, self._render_progress)
+        self.append_column(col)
+
+    @staticmethod
+    def _render_filename(_column, cell, model, iter):
+        thread = model.get_value(iter, model.THREAD_COLUMN)
+        cell.set_property('text', thread.filename)
+
+    @staticmethod
+    def _render_progress(_column, cell, model, iter):
+        count, total = model.get(iter, model.COUNT_COLUMN, model.TOTAL_COLUMN)
+        if total > 0:
+            cell.set_property('text', '%d/%d pages' % (count, total))
+            cell.set_property('value', 100 * count / total)
+        else:
+            cell.set_property('text', 'Initializing...')
+            cell.set_property('value', 0)
 
 
 class MainWindow(gtk.Window):

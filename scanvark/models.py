@@ -54,16 +54,15 @@ class PageList(gtk.ListStore):
 
 class SaveList(gtk.ListStore):
     THREAD_COLUMN = 0
-    FILENAME_COLUMN = 1
-    PROGRESS_COLUMN = 2
-    PROGRESS_TEXT_COLUMN = 3
+    COUNT_COLUMN = 1
+    TOTAL_COLUMN = 2
 
     def __init__(self):
-        gtk.ListStore.__init__(self, object, gobject.TYPE_STRING,
-                gobject.TYPE_DOUBLE, gobject.TYPE_STRING)
+        gtk.ListStore.__init__(self, object, gobject.TYPE_INT,
+                gobject.TYPE_INT)
 
     def add_thread(self, thread):
-        self.append([thread, thread.filename, 0, 'Initializing...'])
+        self.append([thread, 0, 0])
 
     def _find_thread(self, thread):
         iter = self.get_iter_first()
@@ -75,9 +74,8 @@ class SaveList(gtk.ListStore):
 
     def progress(self, thread, count, total):
         iter = self._find_thread(thread)
-        self.set_value(iter, self.PROGRESS_COLUMN, 100 * count / total)
-        self.set_value(iter, self.PROGRESS_TEXT_COLUMN,
-                '%d/%d pages' % (count, total))
+        self.set_value(iter, self.COUNT_COLUMN, count)
+        self.set_value(iter, self.TOTAL_COLUMN, total)
 
     def remove_thread(self, thread):
         self.remove(self._find_thread(thread))
