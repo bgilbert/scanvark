@@ -21,7 +21,17 @@ from __future__ import division
 import gobject
 import gtk
 
-class PageList(gtk.ListStore):
+class _ListStore(gtk.ListStore):
+    def _find_value(self, column, value):
+        iter = self.get_iter_first()
+        while iter is not None:
+            if self.get_value(iter, column) is value:
+                return iter
+            iter = self.iter_next(iter)
+        raise KeyError()
+
+
+class PageList(_ListStore):
     PAGE_COLUMN = 0
     PIXBUF_COLUMN = 1
 
@@ -31,7 +41,7 @@ class PageList(gtk.ListStore):
     }
 
     def __init__(self, config):
-        gtk.ListStore.__init__(self, object, gtk.gdk.Pixbuf)
+        _ListStore.__init__(self, object, gtk.gdk.Pixbuf)
         self._config = config
 
     def add_page(self, page):
@@ -52,31 +62,23 @@ class PageList(gtk.ListStore):
         self.remove(self.get_iter(path))
 
 
-class SaveList(gtk.ListStore):
+class SaveList(_ListStore):
     THREAD_COLUMN = 0
     COUNT_COLUMN = 1
     TOTAL_COLUMN = 2
 
     def __init__(self):
-        gtk.ListStore.__init__(self, object, gobject.TYPE_INT,
+        _ListStore.__init__(self, object, gobject.TYPE_INT,
                 gobject.TYPE_INT)
 
     def add_thread(self, thread):
         self.append([thread, 0, 0])
 
-    def _find_thread(self, thread):
-        iter = self.get_iter_first()
-        while iter is not None:
-            if self.get_value(iter, self.THREAD_COLUMN) is thread:
-                return iter
-            iter = self.iter_next(iter)
-        raise KeyError()
-
     def progress(self, thread, count, total):
-        iter = self._find_thread(thread)
+        iter = self._find_value(self.THREAD_COLUMN, thread)
         self.set_value(iter, self.COUNT_COLUMN, count)
         self.set_value(iter, self.TOTAL_COLUMN, total)
 
     def remove_thread(self, thread):
-        self.remove(self._find_thread(thread))
+        self.remove(self._find_value(self.THREAD_COLUMN, thread))
         thread.join()
