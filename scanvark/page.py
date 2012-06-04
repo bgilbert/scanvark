@@ -30,7 +30,7 @@ class Page(gobject.GObject):
         'changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, config, image, resolution):
+    def __init__(self, config, image, resolution, rotation=0):
         gobject.GObject.__init__(self)
         self._config = config
         self._fh = TemporaryFile(prefix='scanvark-')
@@ -38,7 +38,7 @@ class Page(gobject.GObject):
 
         self.resolution = resolution
         self._size = image.size
-        self._rotation = 0
+        self._rotation = rotation
 
         self._thumbnail = image.copy()
         self._thumbnail.thumbnail(config.thumbnail_size, Image.ANTIALIAS)

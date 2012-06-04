@@ -102,8 +102,13 @@ class ScannerThread(threading.Thread):
             # Scan
             odd = True
             for img in self._dev.multi_scan():
-                img = self._transform(img, odd)
-                page = Page(self._config, img, self.resolution)
+                # Some backends produce garbage in grayscale mode, so we scan
+                # in color and downconvert
+                if self._config.fake_grayscale and not self.color:
+                    img = img.convert('L')
+                page = Page(self._config, img, self.resolution,
+                        self._config.rotate_odd if odd else
+                        self._config.rotate_even)
                 self._page_callback(page)
                 odd = not odd
             img = None
@@ -128,24 +133,3 @@ class ScannerThread(threading.Thread):
             return bool(self._dev.__dict__['dev'].get_option(index))
         except KeyError:
             return False
-
-    def _transform(self, img, odd_page):
-        # Some backends produce garbage in grayscale mode, so we scan in
-        # color and downconvert
-        if self._config.fake_grayscale and not self.color:
-            img = img.convert('L')
-
-        if odd_page:
-            rotate = self._config.rotate_odd
-        else:
-            rotate = self._config.rotate_even
-        if rotate == 90:
-            img = img.transpose(Image.ROTATE_90)
-        elif rotate == 180:
-            img = img.transpose(Image.ROTATE_180)
-        elif rotate == 270:
-            img = img.transpose(Image.ROTATE_270)
-        elif rotate != 0:
-            raise ValueError('Unknown image rotation: %s' % rotate)
-
-        return img
