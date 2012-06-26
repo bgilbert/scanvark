@@ -18,6 +18,5 @@ defaults:
 scan-settings:
     # Set SANE options (see scanimage -A)
     ald: yes
-    swcrop: true
     df-action: stop
     df-thickness: yes
