@@ -21,9 +21,14 @@ from __future__ import division
 import numpy
 from PIL import Image
 import sane
+import _sane
 import threading
 
 from .page import Page
+
+class ScanError(Exception):
+    pass
+
 
 class DynamicLengthSaneDev(sane.SaneDev):
     '''If dynamic scan length is enabled in the driver, libsane reports an
@@ -101,7 +106,7 @@ class ScannerThread(threading.Thread):
 
             # Scan
             odd = True
-            for img in self._dev.multi_scan():
+            for img in self._scan_pages():
                 page = Page(self._config, img, self.resolution,
                         self._config.rotate_odd if odd else
                         self._config.rotate_even)
@@ -109,6 +114,21 @@ class ScannerThread(threading.Thread):
                 odd = not odd
             img = None
             self._scan_status_callback(False)
+
+    def _scan_pages(self):
+        '''Reimplementation of sane._SaneIterator which doesn't choke on
+        _sane exceptions.'''
+        try:
+            while True:
+                self._dev.start()
+                yield self._dev.snap(True)
+        except _sane.error, e:
+            if e != 'Document feeder out of documents':
+                # We can't reraise the exception as-is because _sane.error
+                # is a string exception, which is illegal in modern Python
+                raise ScanError(e)
+        finally:
+            self._dev.cancel()
 
     def scan(self):
         # Runs in UI thread
