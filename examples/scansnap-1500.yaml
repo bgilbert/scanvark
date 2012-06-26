@@ -11,9 +11,6 @@ rotate: 180
 # Load pages back-to-front
 page-order: reverse
 
-# SANE driver produces garbage in grayscale mode
-fake-grayscale: true
-
 defaults:
     # Enable duplex scanning by default
     double-sided: true

@@ -32,7 +32,6 @@ class ScanvarkConfig(object):
         self.source_double = config.get('double-source', None)
 
         self.prepend_new_pages = config.get('page-order') == 'reverse'
-        self.fake_grayscale = config.get('fake-grayscale', False)
         def get_rotation(key):
             val = config.get('rotate', 0)
             return config.get(key, val)

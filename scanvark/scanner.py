@@ -89,7 +89,7 @@ class ScannerThread(threading.Thread):
             # pylint: disable=W0201
             self._scan_status_callback(True)
             self._dev.resolution = self.resolution
-            if self.color or self._config.fake_grayscale:
+            if self.color:
                 self._dev.mode = 'color'
             else:
                 self._dev.mode = 'gray'
@@ -102,10 +102,6 @@ class ScannerThread(threading.Thread):
             # Scan
             odd = True
             for img in self._dev.multi_scan():
-                # Some backends produce garbage in grayscale mode, so we scan
-                # in color and downconvert
-                if self._config.fake_grayscale and not self.color:
-                    img = img.convert('L')
                 page = Page(self._config, img, self.resolution,
                         self._config.rotate_odd if odd else
                         self._config.rotate_even)
