@@ -78,8 +78,7 @@ class ScannerThread(threading.Thread):
             sane.init()
             self._setup()
         except (_sane.error, Exception), e:
-            self._error_callback("Couldn't set up scanner: %s" % e,
-                    startup_failed=True)
+            self._error_callback("Couldn't set up scanner: %s" % e, True)
             return
 
         while not self._stopping.is_set():

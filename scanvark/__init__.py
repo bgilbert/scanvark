@@ -18,6 +18,7 @@
 #
 
 from __future__ import division
+from functools import wraps
 import glib
 import gobject
 import gtk
@@ -28,19 +29,31 @@ from .save import SaveThread
 from .scanner import ScannerThread
 from .ui import MainWindow, PageWindow, ErrorDialog
 
+def _ui_callback(f):
+    '''Decorator that arranges for the function to be invoked as a callback
+    on the UI thread.'''
+    @wraps(f)
+    def wrapper(*args):
+        glib.idle_add(f, *args)
+    return wrapper
+
 class Scanvark(object):
     def __init__(self, conffile):
         gobject.threads_init()
         self._config = ScanvarkConfig(conffile)
-        self._scanner = ScannerThread(self._config,
-                scan_status_callback=self._scan_status_callback,
-                page_callback=self._page_callback,
-                error_callback=self._scan_error_callback)
         self._pagelist = PageList(self._config)
         self._savelist = SaveList()
         self._main_window = MainWindow(self._config, self._pagelist,
                 self._savelist)
         self._page_windows = {}
+        self._scanner = ScannerThread(self._config,
+                scan_status_callback=
+                        _ui_callback(self._main_window.set_scan_running),
+                page_callback=
+                        _ui_callback(self._pagelist.add_page),
+                error_callback=
+                        self._handle_scan_error
+        )
 
         self._main_window.connect('delete-event', gtk.main_quit)
 
@@ -75,30 +88,25 @@ class Scanvark(object):
             self._pagelist.remove_page(path)
 
         thread = SaveThread(self._config, filename, pages,
-                self._save_progress_callback,
-                self._save_success_callback,
-                self._save_error_callback)
+                progress_callback=_ui_callback(self._savelist.progress),
+                success_callback=_ui_callback(self._savelist.remove_thread),
+                error_callback=self._handle_save_error)
         self._savelist.add_thread(thread)
         thread.start()
 
-    def _save_progress_callback(self, thread, count, total):
-        # Runs in save thread
-        glib.idle_add(self._savelist.progress, thread, count, total)
-
-    def _save_success_callback(self, thread):
-        # Runs in save thread
-        glib.idle_add(self._savelist.remove_thread, thread)
-
-    def _save_error_callback(self, thread, message):
-        # Runs in save thread
-        glib.idle_add(self._handle_save_error, thread, message)
-
+    @_ui_callback
     def _handle_save_error(self, thread, message):
         self._show_error("Couldn't save file: %s" % message)
         # Restore pages to page list
         for page in thread.pages:
             self._pagelist.append_page(page)
         self._savelist.remove_thread(thread)
+
+    @_ui_callback
+    def _handle_scan_error(self, message, startup_failed=False):
+        self._show_error(message)
+        if startup_failed:
+            gtk.main_quit()
 
     def _show_error(self, message):
         dlg = ErrorDialog(self._main_window, message)
@@ -109,20 +117,6 @@ class Scanvark(object):
         (self._scanner.resolution, self._scanner.color,
                 self._scanner.double_sided) = \
                 self._main_window.get_settings()
-
-    def _scan_status_callback(self, is_running):
-        # Runs in scanner thread
-        glib.idle_add(self._main_window.set_scan_running, is_running)
-
-    def _page_callback(self, page):
-        # Runs in scanner thread
-        glib.idle_add(self._pagelist.add_page, page)
-
-    def _scan_error_callback(self, message, startup_failed=False):
-        # Runs in scanner thread
-        glib.idle_add(self._show_error, message)
-        if startup_failed:
-            glib.idle_add(gtk.main_quit)
 
     def _open_page(self, page):
         if page not in self._page_windows:
