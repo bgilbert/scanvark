@@ -23,6 +23,7 @@ from PIL import Image
 import sane
 import _sane
 import threading
+import time
 
 from .page import Page
 
@@ -87,60 +88,92 @@ class ScannerThread(threading.Thread):
     # We intentionally catch all exceptions
     # pylint: disable=W0703
     def run(self):
+        # Initialize SANE
         try:
             with ScanError.sanitize():
                 sane.init()
-            self._setup()
         except Exception, e:
-            self._error_callback("Couldn't set up scanner: %s" % e, True)
+            self._error_callback("Couldn't initialize SANE: %s" % e)
             return
+
+        # Try to initialize the scanner so that the hardware scan button
+        # will work.
+        try:
+            self._setup()
+        except Exception:
+            pass
 
         while not self._stopping.is_set():
             try:
-                self._run_iteration()
+                self._wait_for_start()
+                if self._stopping.is_set():
+                    break
+                self._scan_status_callback(True)
+                # Wait for the scan status callback to run in the UI thread
+                # before _setup() takes the GIL for perhaps 1 second
+                time.sleep(0.1)
+                self._setup()
+                self._run_scan()
             except Exception, e:
                 self._error_callback("Scan failed: %s" % e)
-                # Try to reset scanner
-                try:
-                    with ScanError.sanitize():
-                        self._dev.cancel()
-                        self._dev.close()
-                except Exception, e:
-                    pass
-                try:
-                    self._setup()
-                except Exception, e:
-                    self._error_callback("Couldn't reinitialize scanner: %s"
-                            % e)
-                    return
+                self._close()
             finally:
                 self._scan_status_callback(False)
+
+        self._close()
     # pylint: enable=W0703
 
     def _setup(self):
-        with ScanError.sanitize():
-            self._dev = DynamicLengthSaneDev(self._config.device)
-            for k, v in self._config.device_config.iteritems():
-                setattr(self._dev, k, v)
+        if self._dev is None:
+            try:
+                with ScanError.sanitize():
+                    dev = DynamicLengthSaneDev(self._config.device)
+                    for k, v in self._config.device_config.iteritems():
+                        setattr(dev, k, v)
+            except RuntimeError, e:
+                # Attempted to open an invalid device
+                raise ScanError(str(e))
+            self._dev = dev
 
-    def _run_iteration(self):
-        # Wait for a start event or button press
-        while not self._start.wait(0.1):
-            # Poll the scan button.
-            if self._scan_button:
-                break
+    def _close(self):
+        if self._dev is not None:
+            try:
+                with ScanError.sanitize():
+                    self._dev.cancel()
+                    self._dev.close()
+                self._dev = None
+            except ScanError:
+                pass
 
-        # Check if we're shutting down
-        if self._stopping.is_set():
-            return
+    def _wait_for_start(self):
+        '''Wait for a software start event or hardware button press.'''
+        while not self._stopping.is_set():
+            if self._dev is not None:
+                # Have a scanner connection.  First check hardware button.
+                try:
+                    if self._scan_button:
+                        break
+                except ScanError:
+                    # Scanner went away
+                    self._close()
+
+                # Block on software start.
+                if self._start.wait(0.1):
+                    break
+
+            else:
+                # No scanner connection.  Don't try to make one, because
+                # _setup() can take a while and runs with the GIL held.
+                # Block on software start.
+                if self._start.wait(1):
+                    break
 
         # Reset start event
         self._start.clear()
 
-        # Configure scanner
+    def _run_scan(self):
         # pylint chokes on SaneDev's dynamic attributes
         # pylint: disable=W0201
-        self._scan_status_callback(True)
         with ScanError.sanitize():
             self._dev.resolution = self.resolution
             if self.color:
@@ -153,7 +186,6 @@ class ScannerThread(threading.Thread):
                 self._dev.source = self._config.source_single
         # pylint: enable=W0201
 
-        # Scan
         odd = True
         for img in self._scan_pages():
             page = Page(self._config, img, self.resolution,

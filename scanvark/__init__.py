@@ -52,7 +52,7 @@ class Scanvark(object):
                 page_callback=
                         _ui_callback(self._pagelist.add_page),
                 error_callback=
-                        self._handle_scan_error
+                        _ui_callback(self._show_error),
         )
 
         self._main_window.connect('delete-event', gtk.main_quit)
@@ -101,12 +101,6 @@ class Scanvark(object):
         for page in thread.pages:
             self._pagelist.append_page(page)
         self._savelist.remove_thread(thread)
-
-    @_ui_callback
-    def _handle_scan_error(self, message, startup_failed=False):
-        self._show_error(message)
-        if startup_failed:
-            gtk.main_quit()
 
     def _show_error(self, message):
         dlg = ErrorDialog(self._main_window, message)
