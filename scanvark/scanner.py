@@ -27,7 +27,20 @@ import threading
 from .page import Page
 
 class ScanError(Exception):
-    pass
+    # Class named according to method naming conventions.
+    # pylint: disable=C0103
+    class sanitize(object):
+        '''Convert _sane's string exceptions into proper ones.
+        String exceptions can't be reraised because they're illegal in modern
+        Python.'''
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if exc_type == _sane.error:
+                raise ScanError(exc_val)
+    # pylint: enable=C0103
 
 
 class DynamicLengthSaneDev(sane.SaneDev):
@@ -75,26 +88,28 @@ class ScannerThread(threading.Thread):
     # pylint: disable=W0703
     def run(self):
         try:
-            sane.init()
+            with ScanError.sanitize():
+                sane.init()
             self._setup()
-        except (_sane.error, Exception), e:
+        except Exception, e:
             self._error_callback("Couldn't set up scanner: %s" % e, True)
             return
 
         while not self._stopping.is_set():
             try:
                 self._run_iteration()
-            except (_sane.error, Exception), e:
+            except Exception, e:
                 self._error_callback("Scan failed: %s" % e)
                 # Try to reset scanner
                 try:
-                    self._dev.cancel()
-                    self._dev.close()
-                except (_sane.error, Exception), e:
+                    with ScanError.sanitize():
+                        self._dev.cancel()
+                        self._dev.close()
+                except Exception, e:
                     pass
                 try:
                     self._setup()
-                except (_sane.error, Exception), e:
+                except Exception, e:
                     self._error_callback("Couldn't reinitialize scanner: %s"
                             % e)
                     return
@@ -103,9 +118,10 @@ class ScannerThread(threading.Thread):
     # pylint: enable=W0703
 
     def _setup(self):
-        self._dev = DynamicLengthSaneDev(self._config.device)
-        for k, v in self._config.device_config.iteritems():
-            setattr(self._dev, k, v)
+        with ScanError.sanitize():
+            self._dev = DynamicLengthSaneDev(self._config.device)
+            for k, v in self._config.device_config.iteritems():
+                setattr(self._dev, k, v)
 
     def _run_iteration(self):
         # Wait for a start event or button press
@@ -125,15 +141,16 @@ class ScannerThread(threading.Thread):
         # pylint chokes on SaneDev's dynamic attributes
         # pylint: disable=W0201
         self._scan_status_callback(True)
-        self._dev.resolution = self.resolution
-        if self.color:
-            self._dev.mode = 'color'
-        else:
-            self._dev.mode = 'gray'
-        if self.double_sided:
-            self._dev.source = self._config.source_double
-        else:
-            self._dev.source = self._config.source_single
+        with ScanError.sanitize():
+            self._dev.resolution = self.resolution
+            if self.color:
+                self._dev.mode = 'color'
+            else:
+                self._dev.mode = 'gray'
+            if self.double_sided:
+                self._dev.source = self._config.source_double
+            else:
+                self._dev.source = self._config.source_single
         # pylint: enable=W0201
 
         # Scan
@@ -149,14 +166,13 @@ class ScannerThread(threading.Thread):
         '''Reimplementation of sane._SaneIterator which doesn't choke on
         _sane exceptions.'''
         try:
-            while True:
-                self._dev.start()
-                yield self._dev.snap(True)
-        except _sane.error, e:
-            if e != 'Document feeder out of documents':
-                # We can't reraise the exception as-is because _sane.error
-                # is a string exception, which is illegal in modern Python
-                raise ScanError(e)
+            with ScanError.sanitize():
+                while True:
+                    self._dev.start()
+                    yield self._dev.snap(True)
+        except ScanError, e:
+            if str(e) != 'Document feeder out of documents':
+                raise
         finally:
             self._dev.cancel()
 
@@ -175,7 +191,8 @@ class ScannerThread(threading.Thread):
         # "scan", which conflicts with the SaneDev.scan() method, so we have
         # to go the long way around.
         try:
-            index = self._dev['scan'].index
-            return bool(self._dev.__dict__['dev'].get_option(index))
+            with ScanError.sanitize():
+                index = self._dev['scan'].index
+                return bool(self._dev.__dict__['dev'].get_option(index))
         except KeyError:
             return False
