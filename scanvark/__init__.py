@@ -34,7 +34,8 @@ class Scanvark(object):
         self._config = ScanvarkConfig(conffile)
         self._scanner = ScannerThread(self._config,
                 scan_status_callback=self._scan_status_callback,
-                page_callback=self._page_callback)
+                page_callback=self._page_callback,
+                error_callback=self._scan_error_callback)
         self._pagelist = PageList(self._config)
         self._savelist = SaveList()
         self._main_window = MainWindow(self._config, self._pagelist,
@@ -93,14 +94,16 @@ class Scanvark(object):
         glib.idle_add(self._handle_save_error, thread, message)
 
     def _handle_save_error(self, thread, message):
-        dlg = ErrorDialog(self._main_window,
-                "Couldn't save file: %s" % message)
-        dlg.run()
-        dlg.destroy()
+        self._show_error("Couldn't save file: %s" % message)
         # Restore pages to page list
         for page in thread.pages:
             self._pagelist.append_page(page)
         self._savelist.remove_thread(thread)
+
+    def _show_error(self, message):
+        dlg = ErrorDialog(self._main_window, message)
+        dlg.run()
+        dlg.destroy()
 
     def _copy_settings_to_scanner(self):
         (self._scanner.resolution, self._scanner.color,
@@ -114,6 +117,12 @@ class Scanvark(object):
     def _page_callback(self, page):
         # Runs in scanner thread
         glib.idle_add(self._pagelist.add_page, page)
+
+    def _scan_error_callback(self, message, startup_failed=False):
+        # Runs in scanner thread
+        glib.idle_add(self._show_error, message)
+        if startup_failed:
+            glib.idle_add(gtk.main_quit)
 
     def _open_page(self, page):
         if page not in self._page_windows:
