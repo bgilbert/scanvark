@@ -23,7 +23,6 @@ from collections import Sequence
 import glib
 import gobject
 import gtk
-import os
 
 _BASE_RESOLUTION = 600
 
@@ -488,16 +487,6 @@ class MainWindow(gtk.Window):
 
     def _save(self):
         filename = self._controls.name_field.get_text()
-        if os.path.exists(filename):
-            dlg = ErrorDialog(self,
-                    'Destination file already exists.  Overwrite?',
-                    type=gtk.MESSAGE_QUESTION,
-                    buttons=gtk.BUTTONS_YES_NO)
-            dlg.set_default_response(gtk.RESPONSE_NO)
-            result = dlg.run()
-            dlg.destroy()
-            if result != gtk.RESPONSE_YES:
-                return
         self.emit('save', filename, sorted(self._pages.get_selected_items()))
         self._pages.grab_focus()
 

@@ -18,6 +18,7 @@
 #
 
 from __future__ import division
+import os
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.utils import ImageReader
 import threading
@@ -37,7 +38,10 @@ class SaveThread(threading.Thread):
     # pylint: disable=W0703
     def run(self):
         try:
-            canvas = Canvas(self.filename + '.pdf', pageCompression=1)
+            filename = self.filename + '.pdf'
+            if os.path.exists(filename):
+                raise Exception('File already exists')
+            canvas = Canvas(filename, pageCompression=1)
             canvas.setCreator('Scanvark')
             canvas.setTitle('Scanned document')
             i = 0
