@@ -91,9 +91,10 @@ class _ListIconView(gtk.IconView):
                     self.select_path((new,))
                 self._selection_anchor = new
             else:
-                self.unselect_all()
-                self.select_path((new,))
-                self._selection_anchor = new
+                if not self.path_is_selected((new,)):
+                    self.unselect_all()
+                    self.select_path((new,))
+                    self._selection_anchor = new
 
         # We need to let the default handler run to prepare for a possible
         # drag, but then we need to fix up its selection breakage afterward.
@@ -200,6 +201,8 @@ class _ListIconView(gtk.IconView):
 class _PageView(_ListIconView):
     __gsignals__ = {
         'activated': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'selection-activated': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                ()),
         'delete-selected': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
@@ -208,17 +211,30 @@ class _PageView(_ListIconView):
         self.set_pixbuf_column(model.PIXBUF_COLUMN)
         self.set_reorderable(True)
         self.connect('key-press-event', self._keypress)
+        self.connect('button-press-event', self._handle_doubleclick)
 
     def _keypress(self, _wid, ev):
         if ev.state == 0:
             if ev.keyval == gtk.gdk.keyval_from_name('Return'):
                 self.emit('activated')
                 return True
+            if ev.keyval == gtk.gdk.keyval_from_name('space'):
+                self.emit('selection-activated')
+                return True
             if (ev.keyval == gtk.gdk.keyval_from_name('BackSpace') or
                     ev.keyval == gtk.gdk.keyval_from_name('Delete')):
                 self.emit('delete-selected')
                 return True
         return False
+
+    # gtk.gdk._2BUTTON_PRESS isn't protected, it's just badly named
+    # pylint: disable=W0212
+    def _handle_doubleclick(self, _wid, ev):
+        if ev.type == gtk.gdk._2BUTTON_PRESS:
+            self.emit('selection-activated')
+            return True
+        return False
+    # pylint: enable=W0212
 
 
 class _PageToolbar(gtk.Toolbar):
@@ -449,8 +465,7 @@ class MainWindow(gtk.Window):
         self._pages.connect('selection-changed', self._pages_selected)
         self._pages.connect('activated',
                 lambda _wid: self._controls.name_field.grab_focus())
-        self._pages.connect('item-activated', lambda _wid, path:
-                self.emit('page-opened', pagelist.get_page(path)))
+        self._pages.connect('selection-activated', lambda _wid: self._open())
         self._pages.connect('delete-selected',
                 lambda _wid: self._delete_selected())
         self._controls.scan_button.connect('clicked',
@@ -477,8 +492,9 @@ class MainWindow(gtk.Window):
         self._controls.set_scan_running(running)
 
     def _open(self):
+        model = self._pages.get_model()
         for path in self._pages.get_selected_items():
-            self._pages.item_activated(path)
+            self.emit('page-opened', model.get_page(path))
 
     def _rotate(self, degrees):
         model = self._pages.get_model()
