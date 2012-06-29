@@ -288,10 +288,13 @@ class _Controls(gtk.Table):
         self.set_border_width(5)
         row = 0
 
-        def make_label(text):
-            label = gtk.Label(text)
+        def make_label(text, for_widget=None):
+            label = gtk.Label()
+            label.set_markup_with_mnemonic(text)
             label.set_alignment(1, 0.5)
             label.set_padding(5, 0)
+            if for_widget is not None:
+                label.set_mnemonic_widget(for_widget)
             return label
 
         def make_button(text):
@@ -307,25 +310,26 @@ class _Controls(gtk.Table):
                 self._resolution.append_text(str(resolution) + ' dpi')
                 if resolution == config.default_resolution:
                     self._resolution.set_active(i)
-        self.attach(make_label('Resolution:'), 0, 1, row, row + 1)
         self.attach(self._resolution, 1, 2, row, row + 1)
+        self.attach(make_label('_Resolution:', self._resolution), 0, 1,
+                row, row + 1)
         self._resolution.connect('changed', self._settings_changed)
         row += 1
 
-        self.color = gtk.CheckButton('Color')
+        self.color = gtk.CheckButton('_Color')
         self.attach(self.color, 0, 2, row, row + 1)
         self.color.set_active(config.default_color)
         self.color.connect('toggled', self._settings_changed)
         row += 1
 
-        self.double_sided = gtk.CheckButton('Double-sided')
+        self.double_sided = gtk.CheckButton('_Double-sided')
         self.double_sided.set_active(config.default_double_sided)
         self.attach(self.double_sided, 0, 2, row, row + 1)
         self.double_sided.connect('toggled', self._settings_changed)
         self.set_row_spacing(row, 10)
         row += 1
 
-        self.scan_button, align = make_button('Scan')
+        self.scan_button, align = make_button('Sca_n')
         self.attach(align, 1, 2, row, row + 1)
         row += 1
 
@@ -334,14 +338,15 @@ class _Controls(gtk.Table):
 
         self.name_field = gtk.Entry()
         self.name_field.set_width_chars(25)
-        self.attach(make_label('Filename:'), 0, 1, row, row + 1)
         self.attach(self.name_field, 1, 2, row, row + 1)
+        self.attach(make_label('_Filename:', self.name_field), 0, 1,
+                row, row + 1)
         self.name_field.connect('changed',
                 lambda _wid: self._update_sensitive())
         self.set_row_spacing(row, 10)
         row += 1
 
-        self.save_button, align = make_button('Save')
+        self.save_button, align = make_button('_Save')
         self.attach(align, 1, 2, row, row + 1)
         row += 1
 
