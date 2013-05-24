@@ -214,7 +214,8 @@ class _PageView(_ListIconView):
         self.connect('button-press-event', self._handle_doubleclick)
 
     def _keypress(self, _wid, ev):
-        if ev.state == 0:
+        state = ev.state & gtk.accelerator_get_default_mod_mask()
+        if state == 0:
             if ev.keyval == gtk.gdk.keyval_from_name('Return'):
                 self.emit('activated')
                 return True
